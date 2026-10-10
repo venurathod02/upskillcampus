@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClearChapter — Readability Checker</title>
+<style>
+:root{--ink:#182230;--muted:#637083;--line:#dce3ec;--bg:#f5f7fb;--accent:#365cf5;--soft:#edf1ff;--hard:#fff0e8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:28px 18px 60px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:24px}
+.brand{font-size:1.35rem;font-weight:800;letter-spacing:-.04em}.tag{font-size:.82rem;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:99px;padding:6px 10px}
+h1{font-size:clamp(2rem,5vw,3.3rem);line-height:1.05;letter-spacing:-.05em;margin:0 0 12px}.intro{color:var(--muted);max-width:650px;margin:0 0 26px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:0 8px 28px #15233a08}
+label{display:block;font-weight:700;margin-bottom:8px}textarea{width:100%;min-height:230px;resize:vertical;border:1px solid #cbd5e1;border-radius:12px;padding:14px;font:inherit;outline:none}textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px #365cf51c}
+.controls{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}.hint,.count{font-size:.88rem;color:var(--muted)}
+button{border:0;border-radius:12px;background:var(--accent);color:white;font-weight:750;font:inherit;padding:11px 18px;cursor:pointer}button.secondary{background:#eef2f7;color:var(--ink)}button:focus-visible{outline:3px solid #93a7ff;outline-offset:2px}
+.results{display:none;margin-top:20px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.stat{padding:15px;border:1px solid var(--line);border-radius:14px;background:#fff}.stat strong{display:block;font-size:1.6rem;line-height:1.2}.stat span{color:var(--muted);font-size:.84rem}
+.result-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}.scoreline{display:flex;align-items:center;gap:16px}.ring{width:86px;height:86px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--accent) calc(var(--score)*1%),#e8edf5 0);position:relative;flex-shrink:0}.ring:before{content:"";position:absolute;inset:7px;background:white;border-radius:50%}.ring b{z-index:1;font-size:1.4rem}.muted{color:var(--muted)}.sentence{padding:12px 13px;border-radius:10px;margin:10px 0;background:var(--hard);border-left:4px solid #e98b52}.sentence small{display:block;color:#87502d;margin-top:5px}.reading{white-space:pre-wrap;line-height:1.8}.reading mark{background:#ffe0c9;color:#552a0b;border-radius:3px;padding:1px 2px}.foot{font-size:.82rem;color:var(--muted);margin-top:18px}
+@media(max-width:680px){.stats{grid-template-columns:repeat(2,1fr)}.result-grid{grid-template-columns:1fr}.panel{padding:15px}}
+</style>
+</head>
+<body><main>
+<header class="top"><div class="brand">✳ ClearChapter</div><span class="tag">Free · Runs in your browser</span></header>
+<h1>Make every chapter<br>easier to read.</h1>
+<p class="intro">Paste a chapter to estimate its readability, see quick writing stats, and find five sentences that may need a second look. Your text stays in this browser.</p>
+<section class="panel">
+<label for="chapter">Your chapter</label>
+<textarea id="chapter" placeholder="Paste at least a few sentences here…"></textarea>
+<div class="controls"><span class="count" id="liveCount">0 words · 0 sentences</span><div><button class="secondary" id="example">Try example</button> <button id="analyze">Check readability →</button></div></div>
+</section>
+<section class="results" id="results" aria-live="polite">
+<div class="stats">
+<div class="stat"><strong id="words">0</strong><span>Words</span></div>
+<div class="stat"><strong id="sentences">0</strong><span>Sentences</span></div>
+<div class="stat"><strong id="avg">0</strong><span>Avg. words / sentence</span></div>
+<div class="stat"><strong id="grade">—</strong><span>Estimated grade level</span></div>
+</div>
+<div class="result-grid">
+<div class="panel">
+<div class="scoreline"><div class="ring" id="ring" style="--score:50"><b id="score">50</b></div><div><h2 style="margin:0">Readability score</h2><div id="level" class="muted">Analyzing…</div><p class="muted" style="margin:5px 0 0;font-size:.9rem">Flesch Reading Ease estimate · higher is easier</p></div></div>
+<h3>Chapter with difficult sentences</h3><div class="reading" id="markedText"></div>
+</div>
+<div class="panel"><h2 style="margin-top:0">Five hardest sentences</h2><p class="muted" style="margin-top:-8px">Ranked using sentence length and syllable estimates. Treat these as suggestions, not a verdict.</p><div id="hardest"></div></div>
+</div>
+<p class="foot">This is a lightweight heuristic, not an editorial or educational assessment. Syllable counting is approximate, especially for names, technical terms, and words with unusual pronunciation.</p>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const sample="Clear writing helps readers understand a chapter without unnecessary effort. When an author introduces several unfamiliar ideas in a single sentence, the reader may need to pause and reread the passage. A useful readability tool should offer a quick estimate, but it should not pretend that one number can measure every part of good writing. Editors should also consider audience, purpose, tone, and subject matter. For example, a scientific explanation may need precise technical vocabulary even when a simpler word is available. The goal is not to remove every complex sentence. Instead, writers can use the score to identify places where a clearer structure or a short explanation might help.";
+function splitSentences(t){return (t.match(/[^.!?]+(?:[.!?]+|$)/g)||[]).map(s=>s.trim()).filter(Boolean)}
+function words(t){return t.match(/\b[\p{L}\p{N}'’-]+\b/gu)||[]}
+function syllables(word){let w=word.toLowerCase().replace(/[^a-z]/g,'');if(!w)return 1;if(w.length<=3)return 1;w=w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/,'').replace(/^y/,'');const m=w.match(/[aeiouy]{1,2}/g);return Math.max(1,m?m.length:1)}
+function scoreSentence(s){const ws=words(s);if(!ws.length)return 0;const syl=ws.reduce((n,w)=>n+syllables(w),0);return (ws.length*0.55)+(syl/ws.length*9)+(Math.max(0,ws.length-20)*0.8)}
+function analyze(){const text=$('chapter').value.trim();if(!text){$('chapter').focus();return}const ss=splitSentences(text), ws=words(text), syll=ws.reduce((n,w)=>n+syllables(w),0), avg=ss.length?ws.length/ss.length:0;const flesch=ss.length&&ws.length?206.835-1.015*avg-84.6*(syll/ws.length):0;const safe=Math.max(0,Math.min(100,Math.round(flesch)));const grade=ss.length&&ws.length?Math.max(0,Math.round(0.39*avg+11.8*(syll/ws.length)-15.59)):0;
+$('results').style.display='block';$('words').textContent=ws.length;$('sentences').textContent=ss.length;$('avg').textContent=avg.toFixed(1);$('grade').textContent='~'+grade;$('score').textContent=safe;$('ring').style.setProperty('--score',safe);
+$('level').textContent=safe>=80?'Very easy':safe>=60?'Fairly easy':safe>=40?'Moderate':safe>=20?'Difficult':'Very difficult';
+const ranked=ss.map((s,i)=>({s,i,score:scoreSentence(s)})).sort((a,b)=>b.score-a.score).slice(0,5);const hardSet=new Set(ranked.map(x=>x.i));
+$('hardest').innerHTML=ranked.map((x,i)=>`<div class="sentence"><b>${i+1}. ${escapeHTML(x.s)}</b><small>Difficulty estimate: ${Math.round(x.score)}</small></div>`).join('')||'<p>No sentences found.</p>';
+$('markedText').innerHTML=ss.map((s,i)=>hardSet.has(i)?`<mark>${escapeHTML(s)}</mark>`:escapeHTML(s)).join(' ');
+}
+function escapeHTML(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function updateCount(){const t=$('chapter').value; $('liveCount').textContent=`${words(t).length} words · ${splitSentences(t).length} sentences`}
+$('chapter').addEventListener('input',updateCount);$('analyze').addEventListener('click',analyze);$('example').addEventListener('click',()=>{$('chapter').value=sample;updateCount();analyze()});
+</script></body></html>
